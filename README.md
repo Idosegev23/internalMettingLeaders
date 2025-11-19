@@ -35,11 +35,12 @@ npm run dev
 ## שליחת הנתונים
 
 כל הנתונים נשלחים לוובהוק:
-`https://hook.eu1.make.com/9rd3ml7fxhnhonxebl3sd84wdnv4m6j4`
+`https://hook.eu2.make.com/uryu3mv7m9tu3dtbkqto6qfdbnrdbjr0`
 
 הנתונים כוללים:
 - פרטי הלקוח והפגישה
 - אנשי הצוות שנבחרו (שם באנגלית + מייל)
 - כל פרטי הבריף
 - דדליינים
+
 

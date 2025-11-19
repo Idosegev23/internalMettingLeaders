@@ -41,3 +41,4 @@ export function searchContacts(contacts: Contact[], query: string): Contact[] {
   }).slice(0, 10) // Limit to 10 results
 }
 
+

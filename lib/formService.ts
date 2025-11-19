@@ -246,7 +246,7 @@ export async function completeForm(
     }
 
     // Send to webhook
-    const response = await fetch('https://hook.eu1.make.com/9rd3ml7fxhnhonxebl3sd84wdnv4m6j4', {
+    const response = await fetch('https://hook.eu2.make.com/uryu3mv7m9tu3dtbkqto6qfdbnrdbjr0', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
