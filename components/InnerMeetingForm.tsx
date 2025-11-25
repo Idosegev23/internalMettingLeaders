@@ -22,7 +22,8 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [pendingSubmitData, setPendingSubmitData] = useState<FormData | null>(null)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showDraftNameDialog, setShowDraftNameDialog] = useState(false)
+  const [draftName, setDraftName] = useState('')
 
   const { form, innerForm, updateField, initializeForm } = useRealtimeForm()
 
@@ -94,45 +95,16 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
     }
   }, [innerForm, setValue])
 
-  // Track changes for unsaved warning
-  useEffect(() => {
-    // Don't track during initial sync
-    if (isInitialSync.current || !innerForm) return
-    
-    // Check if any field has changed
-    const hasChanges = 
-      (watchedFields.clientName !== innerForm.client_name) ||
-      (watchedFields.meetingDate !== innerForm.meeting_date) ||
-      (watchedFields.aboutBrand !== innerForm.about_brand) ||
-      (watchedFields.targetAudiences !== innerForm.target_audiences) ||
-      (watchedFields.goals !== innerForm.goals) ||
-      (watchedFields.insight !== innerForm.insight) ||
-      (watchedFields.strategy !== innerForm.strategy) ||
-      (watchedFields.creative !== innerForm.creative) ||
-      (watchedFields.influencersExample !== innerForm.influencers_example) ||
-      (watchedFields.additionalNotes !== innerForm.additional_notes) ||
-      (watchedFields.budgetDistribution !== innerForm.budget_distribution) ||
-      (watchedFields.creativeDeadline !== innerForm.creative_deadline) ||
-      (watchedFields.internalDeadline !== innerForm.internal_deadline) ||
-      (watchedFields.clientDeadline !== innerForm.client_deadline)
-    
-    setHasUnsavedChanges(hasChanges)
-  }, [watchedFields, innerForm])
 
-  // Handle first field change to create draft - only if no form exists
-  const handleFirstChange = async (field: string, value: any) => {
-    // Only create draft if we don't have a form AND we haven't loaded a form yet
-    if (!form && !innerForm && !initialToken) {
-      await updateField(field, value)
-    }
-  }
 
   const handleSaveDraft = async () => {
+    // If no form exists, show dialog to create new draft
     if (!form || !innerForm) {
-      alert('אין מה לשמור')
+      setShowDraftNameDialog(true)
       return
     }
 
+    // If form exists, save the updates
     setIsSaving(true)
     try {
       // Prepare all data to save
@@ -158,7 +130,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       const success = await updateFormData(form.id, innerForm.id, dataToSave)
       
       if (success) {
-        setHasUnsavedChanges(false)
         alert('הטיוטה נשמרה בהצלחה')
         
         // Update innerForm state to match saved data
@@ -171,6 +142,73 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
     } catch (error) {
       console.error('Error saving draft:', error)
       alert('שגיאה בשמירת הטיוטה')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCreateDraft = async () => {
+    if (!draftName.trim()) {
+      alert('נא להזין שם לטיוטה')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      // Create the draft
+      const draft = await createFormDraft(draftName.trim())
+      if (!draft) {
+        throw new Error('Failed to create draft')
+      }
+
+      // Update states
+      setForm(draft.form)
+      setInnerForm(draft.innerForm)
+
+      // Prepare all data to save
+      const dataToSave: any = {
+        client_name: watchedFields.clientName || null,
+        meeting_date: watchedFields.meetingDate || null,
+        about_brand: watchedFields.aboutBrand || null,
+        target_audiences: watchedFields.targetAudiences || null,
+        goals: watchedFields.goals || null,
+        insight: watchedFields.insight || null,
+        strategy: watchedFields.strategy || null,
+        creative: watchedFields.creative || null,
+        influencers_example: watchedFields.influencersExample || null,
+        additional_notes: watchedFields.additionalNotes || null,
+        budget_distribution: watchedFields.budgetDistribution || null,
+        creative_deadline: watchedFields.creativeDeadline || null,
+        internal_deadline: watchedFields.internalDeadline || null,
+        client_deadline: watchedFields.clientDeadline || null,
+      }
+
+      // Save the form data
+      const { updateFormData } = await import('@/lib/formService')
+      await updateFormData(draft.form.id, draft.innerForm.id, dataToSave)
+
+      // Update URL with share token
+      const url = new URL(window.location.href)
+      url.searchParams.set('form', draft.form.share_token)
+      window.history.pushState({}, '', url.toString())
+
+      // Subscribe to changes for presence
+      const { subscribeToForm, unsubscribe } = await import('@/lib/formService')
+      const channel = subscribeToForm(draft.form.id, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setInnerForm(prev => ({
+            ...prev!,
+            ...payload.new
+          }))
+        }
+      })
+
+      alert('הטיוטה נוצרה ונשמרה בהצלחה')
+      setShowDraftNameDialog(false)
+      setDraftName('')
+    } catch (error) {
+      console.error('Error creating draft:', error)
+      alert('שגיאה ביצירת הטיוטה')
     } finally {
       setIsSaving(false)
     }
@@ -205,18 +243,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
     }
   }
 
-  // Warn before leaving if there are unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault()
-        e.returnValue = ''
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [hasUnsavedChanges])
 
   if (isLoading) {
     return (
@@ -231,18 +257,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
     <>
       <div className="bg-white rounded-lg md:rounded-xl shadow-md p-4 md:p-8">
         <ActiveEditorsIndicator formId={form?.id || null} />
-        
-        {/* Unsaved changes warning */}
-        {hasUnsavedChanges && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-2 text-yellow-800 text-sm">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <span className="font-semibold">יש שינויים שלא נשמרו</span>
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit(handleSubmitClick)}>
           {/* פרטים כלליים */}
@@ -260,10 +274,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
                 id="clientName"
                 type="text"
                 {...register('clientName')}
-                onChange={(e) => {
-                  register('clientName').onChange(e)
-                  handleFirstChange('client_name', e.target.value)
-                }}
                 className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
                   errors.clientName ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -282,10 +292,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
                 id="meetingDate"
                 type="date"
                 {...register('meetingDate')}
-                onChange={(e) => {
-                  register('meetingDate').onChange(e)
-                  handleFirstChange('meeting_date', e.target.value)
-                }}
                 className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
                   errors.meetingDate ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -385,10 +391,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
               <textarea
                 id="aboutBrand"
                 {...register('aboutBrand')}
-                onChange={(e) => {
-                  register('aboutBrand').onChange(e)
-                  handleFirstChange('about_brand', e.target.value)
-                }}
                 rows={4}
                 className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
                   errors.aboutBrand ? 'border-red-500' : 'border-gray-300'
@@ -630,6 +632,52 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
                 className="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors"
               >
                 אשר ושלח
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Draft Name Dialog */}
+      {showDraftNameDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-md w-full">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">
+              שמירת טיוטה חדשה
+            </h3>
+            <p className="text-gray-600 mb-4">
+              נא להזין שם לטיוטה
+            </p>
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              placeholder="לדוגמה: קמפיין קיץ 2025"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent mb-6"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && draftName.trim()) {
+                  handleCreateDraft()
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowDraftNameDialog(false)
+                  setDraftName('')
+                }}
+                className="flex-1 px-6 py-3 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400 transition-colors"
+                disabled={isSaving}
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleCreateDraft}
+                disabled={isSaving || !draftName.trim()}
+                className="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'שומר...' : 'שמור'}
               </button>
             </div>
           </div>

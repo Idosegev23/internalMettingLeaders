@@ -49,7 +49,8 @@ export default function FormsList({ onSelectForm }: FormsListProps) {
             const innerForm = Array.isArray(form.inner_meeting_forms) 
               ? form.inner_meeting_forms[0] 
               : form.inner_meeting_forms
-            const clientName = innerForm?.client_name || form.title || 'ללא שם'
+            const draftName = form.title || 'ללא שם'
+            const clientName = innerForm?.client_name || 'ללא שם לקוח'
             const activeCount = form.active_editors_count || 0
 
             return (
@@ -58,12 +59,15 @@ export default function FormsList({ onSelectForm }: FormsListProps) {
                 onClick={() => onSelectForm(form.share_token)}
                 className="w-full text-right p-3 md:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="font-semibold text-gray-800">
+                    <div className="font-bold text-gray-800 mb-1">
+                      {draftName}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-1">
                       {clientName}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs text-gray-500">
                       {formatDate(form.created_at)}
                     </div>
                   </div>

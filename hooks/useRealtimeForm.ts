@@ -20,7 +20,6 @@ export function useRealtimeForm(): UseRealtimeFormResult {
   const [innerForm, setInnerForm] = useState<InnerMeetingForm | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const channelRef = useRef<any>(null)
-  const isCreatingDraft = useRef(false) // Prevent duplicate draft creation
 
   // Initialize form - either load existing or create new draft
   const initializeForm = useCallback(async (token?: string) => {
@@ -56,39 +55,7 @@ export function useRealtimeForm(): UseRealtimeFormResult {
 
   // Update a field (just optimistic update for real-time, no auto-save)
   const updateField = useCallback(async (field: string, value: any) => {
-    if (!innerForm && !isCreatingDraft.current) {
-      // Prevent duplicate draft creation
-      isCreatingDraft.current = true
-      
-      // Create new draft on first edit
-      const draft = await createFormDraft()
-      if (draft) {
-        setForm(draft.form)
-        setInnerForm(draft.innerForm)
-        
-        // Update URL with share token
-        const url = new URL(window.location.href)
-        url.searchParams.set('form', draft.form.share_token)
-        window.history.pushState({}, '', url.toString())
-        
-        // Subscribe to changes
-        if (channelRef.current) {
-          unsubscribe(channelRef.current)
-        }
-        channelRef.current = subscribeToForm(draft.form.id, (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setInnerForm(prev => ({
-              ...prev!,
-              ...payload.new
-            }))
-          }
-        })
-      }
-      return
-    }
-
-    // If draft is being created, wait
-    if (isCreatingDraft.current && !innerForm) {
+    if (!innerForm) {
       return
     }
 
@@ -97,7 +64,7 @@ export function useRealtimeForm(): UseRealtimeFormResult {
       ...prev!,
       [field]: value
     }))
-  }, [form, innerForm])
+  }, [innerForm])
 
   // Cleanup on unmount
   useEffect(() => {

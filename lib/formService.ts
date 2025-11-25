@@ -14,7 +14,7 @@ const sanitizeText = (text: string): string => {
 }
 
 // Create a new form draft
-export async function createFormDraft(): Promise<{ form: Form; innerForm: InnerMeetingForm } | null> {
+export async function createFormDraft(draftName: string): Promise<{ form: Form; innerForm: InnerMeetingForm } | null> {
   try {
     const supabase = getClient()
     // Create the form
@@ -23,7 +23,7 @@ export async function createFormDraft(): Promise<{ form: Form; innerForm: InnerM
       .insert({
         type: 'inner_meeting',
         status: 'draft',
-        title: null
+        title: draftName
       })
       .select()
       .single()
