@@ -8,7 +8,7 @@ import { loadContacts } from '@/lib/csvLoader'
 import PersonSelector from '@/components/PersonSelector'
 import ActiveEditorsIndicator from '@/components/ActiveEditorsIndicator'
 import { useRealtimeForm } from '@/hooks/useRealtimeForm'
-import { completeForm } from '@/lib/formService'
+import { completeForm, createFormDraft } from '@/lib/formService'
 import type { InnerMeetingForm as InnerMeetingFormType } from '@/lib/supabase'
 
 interface InnerMeetingFormProps {
