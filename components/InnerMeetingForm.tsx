@@ -161,10 +161,6 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
         throw new Error('Failed to create draft')
       }
 
-      // Update states
-      setForm(draft.form)
-      setInnerForm(draft.innerForm)
-
       // Prepare all data to save
       const dataToSave: any = {
         client_name: watchedFields.clientName || null,
@@ -192,16 +188,8 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       url.searchParams.set('form', draft.form.share_token)
       window.history.pushState({}, '', url.toString())
 
-      // Subscribe to changes for presence
-      const { subscribeToForm, unsubscribe } = await import('@/lib/formService')
-      const channel = subscribeToForm(draft.form.id, (payload) => {
-        if (payload.eventType === 'UPDATE') {
-          setInnerForm(prev => ({
-            ...prev!,
-            ...payload.new
-          }))
-        }
-      })
+      // Initialize the form with the new token (this will load it and set up presence)
+      await initializeForm(draft.form.share_token)
 
       alert('הטיוטה נוצרה ונשמרה בהצלחה')
       setShowDraftNameDialog(false)
