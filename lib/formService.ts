@@ -1,4 +1,4 @@
-import { getSupabase, Form, InnerMeetingForm, FormWithDetails, Contact, FormParticipant } from './supabase'
+import { getSupabase, Form, InnerMeetingForm, FormWithDetails, Contact, FormParticipant, FormActivityLog } from './supabase'
 import { FormData } from '@/types/form'
 
 const getClient = () => {
@@ -203,7 +203,7 @@ export async function completeForm(
 ): Promise<boolean> {
   try {
     // Prepare webhook data
-    const webhookData = {
+    const webhookData: any = {
       clientName: sanitizeText(data.clientName),
       meetingDate: data.meetingDate,
       participants: data.participants.map(p => ({
@@ -236,13 +236,24 @@ export async function completeForm(
       goals: sanitizeText(data.goals),
       insight: sanitizeText(data.insight),
       strategy: sanitizeText(data.strategy),
+      mediaStrategy: sanitizeText(data.mediaStrategy || ''),
       creative: sanitizeText(data.creative),
+      creativePresentation: sanitizeText(data.creativePresentation || ''),
       influencersExample: sanitizeText(data.influencersExample || ''),
       additionalNotes: sanitizeText(data.additionalNotes || ''),
       budgetDistribution: sanitizeText(data.budgetDistribution || ''),
       creativeDeadline: data.creativeDeadline,
       internalDeadline: data.internalDeadline,
       clientDeadline: data.clientDeadline,
+    }
+
+    // Add media person if exists
+    if (data.mediaPerson && data.mediaPerson.length > 0) {
+      webhookData.mediaPerson = {
+        name: sanitizeText(data.mediaPerson[0].name),
+        email: data.mediaPerson[0].email,
+        hebrewName: sanitizeText(data.mediaPerson[0].hebrewName)
+      }
     }
 
     // Send to webhook
@@ -333,5 +344,49 @@ export function subscribeToFormsList(callback: (payload: any) => void) {
 export function unsubscribe(channel: any) {
   const supabase = getClient()
   supabase.removeChannel(channel)
+}
+
+// Log activity
+export async function logActivity(
+  formId: string,
+  userEmail: string,
+  userName: string,
+  actionType: 'save_draft' | 'submit'
+): Promise<boolean> {
+  try {
+    const supabase = getClient()
+    const { error } = await supabase
+      .from('form_activity_logs')
+      .insert({
+        form_id: formId,
+        user_email: userEmail,
+        user_name: userName,
+        action_type: actionType
+      })
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error logging activity:', error)
+    return false
+  }
+}
+
+// Get activity logs for a form
+export async function getFormActivityLogs(formId: string): Promise<FormActivityLog[]> {
+  try {
+    const supabase = getClient()
+    const { data, error } = await supabase
+      .from('form_activity_logs')
+      .select('*')
+      .eq('form_id', formId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error getting activity logs:', error)
+    return []
+  }
 }
 

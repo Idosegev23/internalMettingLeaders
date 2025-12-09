@@ -7,8 +7,10 @@ import { FormData, formSchema, Contact } from '@/types/form'
 import { loadContacts } from '@/lib/csvLoader'
 import PersonSelector from '@/components/PersonSelector'
 import ActiveEditorsIndicator from '@/components/ActiveEditorsIndicator'
+import FormActivityLog from '@/components/FormActivityLog'
 import { useRealtimeForm } from '@/hooks/useRealtimeForm'
-import { completeForm, createFormDraft } from '@/lib/formService'
+import { useAuth } from '@/hooks/useAuth'
+import { completeForm, createFormDraft, logActivity } from '@/lib/formService'
 import type { InnerMeetingForm as InnerMeetingFormType } from '@/lib/supabase'
 
 interface InnerMeetingFormProps {
@@ -26,6 +28,7 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
   const [draftName, setDraftName] = useState('')
 
   const { form, innerForm, updateField, initializeForm } = useRealtimeForm()
+  const { user } = useAuth()
 
   const {
     register,
@@ -42,6 +45,7 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       presenter: [],
       presentationMaker: [],
       accountManager: [],
+      mediaPerson: [],
     }
   })
 
@@ -78,7 +82,9 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       setValue('goals', innerForm.goals || '')
       setValue('insight', innerForm.insight || '')
       setValue('strategy', innerForm.strategy || '')
+      setValue('mediaStrategy', innerForm.media_strategy || '')
       setValue('creative', innerForm.creative || '')
+      setValue('creativePresentation', innerForm.creative_presentation || '')
       setValue('influencersExample', innerForm.influencers_example || '')
       setValue('additionalNotes', innerForm.additional_notes || '')
       setValue('budgetDistribution', innerForm.budget_distribution || '')
@@ -116,7 +122,9 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
         goals: watchedFields.goals || null,
         insight: watchedFields.insight || null,
         strategy: watchedFields.strategy || null,
+        media_strategy: watchedFields.mediaStrategy || null,
         creative: watchedFields.creative || null,
+        creative_presentation: watchedFields.creativePresentation || null,
         influencers_example: watchedFields.influencersExample || null,
         additional_notes: watchedFields.additionalNotes || null,
         budget_distribution: watchedFields.budgetDistribution || null,
@@ -130,6 +138,10 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       const success = await updateFormData(form.id, innerForm.id, dataToSave)
       
       if (success) {
+        // Log activity
+        if (user) {
+          await logActivity(form.id, user.email, user.hebrewName, 'save_draft')
+        }
         alert('הטיוטה נשמרה בהצלחה')
         
         // Update innerForm state to match saved data
@@ -170,7 +182,9 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
         goals: watchedFields.goals || null,
         insight: watchedFields.insight || null,
         strategy: watchedFields.strategy || null,
+        media_strategy: watchedFields.mediaStrategy || null,
         creative: watchedFields.creative || null,
+        creative_presentation: watchedFields.creativePresentation || null,
         influencers_example: watchedFields.influencersExample || null,
         additional_notes: watchedFields.additionalNotes || null,
         budget_distribution: watchedFields.budgetDistribution || null,
@@ -182,6 +196,11 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       // Save the form data
       const { updateFormData } = await import('@/lib/formService')
       await updateFormData(draft.form.id, draft.innerForm.id, dataToSave)
+
+      // Log activity
+      if (user) {
+        await logActivity(draft.form.id, user.email, user.hebrewName, 'save_draft')
+      }
 
       // Update URL with share token
       const url = new URL(window.location.href)
@@ -217,6 +236,10 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
       const success = await completeForm(form.id, pendingSubmitData)
       
       if (success) {
+        // Log activity
+        if (user) {
+          await logActivity(form.id, user.email, user.hebrewName, 'submit')
+        }
         alert('הטופס נשלח בהצלחה')
         window.location.href = '/'
       } else {
@@ -245,6 +268,7 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
     <>
       <div className="bg-white rounded-lg md:rounded-xl shadow-md p-4 md:p-8">
         <ActiveEditorsIndicator formId={form?.id || null} />
+        <FormActivityLog formId={form?.id || null} />
 
         <form onSubmit={handleSubmit(handleSubmitClick)}>
           {/* פרטים כלליים */}
@@ -363,6 +387,21 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
                 />
               )}
             />
+
+            <Controller
+              name="mediaPerson"
+              control={control}
+              render={({ field }) => (
+                <PersonSelector
+                  label="איש מדיה"
+                  contacts={contacts}
+                  selectedPersons={field.value || []}
+                  onChange={field.onChange}
+                  error={errors.mediaPerson?.message}
+                  multiSelect={false}
+                />
+              )}
+            />
           </div>
 
           {/* על הבריף */}
@@ -462,6 +501,18 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
             </div>
 
             <div className="mb-6">
+              <label htmlFor="mediaStrategy" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
+                אסטרטגיית מדיה
+              </label>
+              <textarea
+                id="mediaStrategy"
+                {...register('mediaStrategy')}
+                rows={4}
+                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div className="mb-6">
               <label htmlFor="creative" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
                 קריאייטיב
                 <span className="text-red-500 mr-1">*</span>
@@ -477,6 +528,18 @@ export default function InnerMeetingForm({ initialToken }: InnerMeetingFormProps
               {errors.creative && (
                 <p className="mt-1 text-xs md:text-sm text-red-600">{errors.creative.message}</p>
               )}
+            </div>
+
+            <div className="mb-6">
+              <label htmlFor="creativePresentation" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
+                הצגת קריאייטיב
+              </label>
+              <textarea
+                id="creativePresentation"
+                {...register('creativePresentation')}
+                rows={3}
+                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
             </div>
 
             <div className="mb-6">

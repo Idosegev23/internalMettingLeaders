@@ -69,6 +69,8 @@ export interface InnerMeetingForm {
   insight: string | null
   strategy: string | null
   creative: string | null
+  creative_presentation: string | null
+  media_strategy: string | null
   influencers_example: string | null
   additional_notes: string | null
   budget_distribution: string | null
@@ -83,7 +85,16 @@ export interface FormParticipant {
   id: string
   form_id: string
   contact_id: string
-  role: 'participant' | 'creative_writer' | 'presenter' | 'presentation_maker' | 'account_manager'
+  role: 'participant' | 'creative_writer' | 'presenter' | 'presentation_maker' | 'account_manager' | 'media_person'
+  created_at: string
+}
+
+export interface FormActivityLog {
+  id: string
+  form_id: string
+  user_email: string
+  user_name: string | null
+  action_type: 'save_draft' | 'submit'
   created_at: string
 }
 

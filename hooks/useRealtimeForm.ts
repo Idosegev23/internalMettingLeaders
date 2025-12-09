@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { InnerMeetingForm, Form } from '@/lib/supabase'
 import {
-  createFormDraft,
   getFormByToken,
   subscribeToForm,
   unsubscribe
@@ -21,7 +20,7 @@ export function useRealtimeForm(): UseRealtimeFormResult {
   const [isLoading, setIsLoading] = useState(false)
   const channelRef = useRef<any>(null)
 
-  // Initialize form - either load existing or create new draft
+  // Initialize form - load existing form by token
   const initializeForm = useCallback(async (token?: string) => {
     setIsLoading(true)
     try {
